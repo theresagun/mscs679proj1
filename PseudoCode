@@ -1,0 +1,21 @@
+// Pseudocode
+
+read text from file into string
+
+function countWords(text segment) {
+    // count words in the segment
+}
+
+
+// If I didn't get him wrong he wanted the program to continuously run through each thread instead of finishing and having to be manually started again
+for each threadCount in [1, 2, 4, 8, 16] {
+    start timer
+    divide text into threadCount segments
+    create and start threadCount threads, each running countWords on a segment
+    wait for all threads to complete
+    end timer and record time taken
+
+    print time taken for this thread count
+}
+
+// (Optional) Print word counts for verification
