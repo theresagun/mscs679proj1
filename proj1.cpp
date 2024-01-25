@@ -33,12 +33,16 @@ bool isLetter(char c) {
     return false;
 }
 
-// TODO rewrite this once it's working
+/* 
+* convert to lowercase by adding the difference between 'a' and 'A' which is 32 
+*/
 char toLower(char c) {
-    if (c <= 'Z' && c >= 'A')
-        return c - ('Z' - 'z');
+    if (c >= 'A' && c <= 'Z') {
+        return c + ('a' - 'A');
+    }
     return c;
 }
+
 
 /* new threads start here */
 void countWords (char* contents, int* sizePtr) {
@@ -105,6 +109,13 @@ int main(int argc, char** argv) {
     ofstream fout;
 
     fin.open(filename);
+
+    // Some error handling to make sure the file stream successfully opened the file
+    if (!fin) {
+        cerr << "Error: Unable to open file '" << filename << "'" << endl;
+        return -1; // non-zero value indicates error
+    }
+    
     while (getline(fin, line)) {
         fileContents.append(line);
     }
