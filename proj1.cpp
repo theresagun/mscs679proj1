@@ -15,6 +15,7 @@
 #include <cstdlib>
 // can't include anything else?
 // TODO go through and remove map if true
+//cant use map or vector 
 #include <map>
 #include <vector>
 
