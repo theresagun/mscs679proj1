@@ -1,35 +1,92 @@
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
-#include <vector>
-#include <algorithm>
 #include <thread>
-#include <chrono>
-// Additional includes as necessary
+#include <mutex>
+#include <atomic>
+#include <vector>
+#include <string>
+#include <unordered_map>
+#include <algorithm>
 
-void countWords(std::unordered_map<std::string, int>& wordCount, const std::string& text) {
-    // Function to count words
-}
-
-void sortAndPrintWords(const std::unordered_map<std::string, int>& wordCount) {
-    // Function to sort and print words
-}
-
-int main() {
-    std::unordered_map<std::string, int> wordCount;
-    std::string word;
-
-    // Open file and read words
-    std::ifstream file("input.txt");
-    while (file >> word) {
-        // Process word and update count
+// Functions
+void processChunk(const std::string& textChunk) {
+        std::istringstream stream(textChunk);
+        std::string word;
+        while (stream >> word) {
+            word = cleanWord(word);
+            if (!word.empty()) {
+                countWord(word);
+            }
+        }
+    }
+    
+    void countWord(const std::string& word) {
+        std::lock_guard<std::mutex> guard(wordCountMutex);
+        wordCount[word]++;
     }
 
-    // Sort and print
-    sortAndPrintWords(wordCount);
+std::string cleanWord(const std::string& word) {
+        // Logic to clean word (remove punctuation, convert to lowercase) goes here
+    }
 
-    // Implement multithreading and measure runtime and memory usage
-    // ...
+std::string cleanWord(const std::string& word);
+
+// Global variables
+std::unordered_map<std::string, int> wordCount;
+std::mutex wordCountMutex;
+
+int main(int argc, char** argv) {
+    // Inside main function
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <filename> <numThreads>\n";
+        return 1;
+    }
+
+    std::string filename = argv[1];
+    int numThreads = std::stoi(argv[2]);
+    
+    std::ifstream file(filename);
+    if (!file) {
+        std::cerr << "Error opening file: " << filename << "\n";
+        return 1;
+    }
+
+    std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+    
+    // Calculate chunk size for each thread
+    size_t chunkSize = fileContents.size() / numThreads;
+    std::vector<std::thread> threads;
+
+    
+    for (int i = 0; i < numThreads; ++i) {
+        size_t start = i * chunkSize;
+        size_t end = (i == numThreads - 1) ? fileContents.size() : (start + chunkSize);
+    
+        // Adjust end to avoid splitting a word
+        while (end < fileContents.size() && isalnum(fileContents[end])) {
+            end++;
+        }
+    
+        std::string textChunk = fileContents.substr(start, end - start);
+        threads.emplace_back(processChunk, textChunk);
+    }
+    
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    // after joining threads
+    std::vector<std::pair<std::string, int>> sortedWords(wordCount.begin(), wordCount.end());
+    std::sort(sortedWords.begin(), sortedWords.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+    });
+    
+    for (const auto& pair : sortedWords) {
+        std::cout << pair.first << " " << pair.second << "\n";
+    }
+
 
     return 0;
 }
+
