@@ -5,31 +5,39 @@
 #include <atomic>
 #include <vector>
 #include <string>
-#include <unordered_map>
-#include <algorithm>
 
 // Functions
+// checks if character is in the alphabet 
+bool isAlpha(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+//converts character to lowercase
+char toLower(char c) {
+    if (c >= 'A' && c <= 'Z') {
+        return c - ('A' - 'a');
+    }
+    return c;
+}
+
+
 void processChunk(const std::string& textChunk) {
-        std::istringstream stream(textChunk);
-        std::string word;
-        while (stream >> word) {
-            word = cleanWord(word);
-            if (!word.empty()) {
-                countWord(word);
-            }
+    std::string word;
+    for (char c : textChunk) {
+        if (isAlpha(c)) {
+            word += toLower(c);
+        } else if (!word.empty()) {
+            countWord(word);
+            word.clear();
         }
     }
-    
-    void countWord(const std::string& word) {
-        std::lock_guard<std::mutex> guard(wordCountMutex);
-        wordCount[word]++;
+    if (!word.empty()) {
+        countWord(word);
     }
+}
 
-std::string cleanWord(const std::string& word) {
-        // Logic to clean word (remove punctuation, convert to lowercase) goes here
-    }
 
-std::string cleanWord(const std::string& word);
+
 
 // Global variables
 std::unordered_map<std::string, int> wordCount;
