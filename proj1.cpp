@@ -2,32 +2,83 @@
  * TODOs
  *  - run with valgrind if we use malloc
  *  - track memory usage
- *  - track time
- *  - get permission to use map library
+ *  - fix when it counts whitespace as a word (happens when using one thread on simpleTest)
+ *  - when running simpleTest with 3 threads it counts "s" as its own word?
+ *  - make it doubly linked so we can sort it as we put it in
+ *  - output to file
 */
 
 #include <thread>
 #include <mutex>
-#include <semaphore>
 #include <atomic>
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-// can't include anything else?
-// TODO go through and remove map if true
-//cant use map or vector 
-#include <map>
-#include <vector>
+#include <chrono>
 
 using namespace std;
 
-/* global var to hold a counter for each word... map for now */
-map<string, int> COUNTER;
 
 /* need a mutex var for the threads to wait on */
 mutex mtx;
 
-counting_semaphore sem(1);
+class MapNode {
+    public:
+        string word;
+        int numOccurences; // TODO - int or long? 
+        MapNode* next;
+        MapNode(string w, MapNode* prev) { // TODO don't think i need prev unless doubly linked
+            // cout << "creating new node for: " << w << endl;
+            word = w;
+            numOccurences = 1;
+            next = nullptr;
+        }
+};
+
+class MapLinkedList {
+    public: 
+       MapNode* head;
+       MapLinkedList() {
+        head = nullptr;
+       }
+
+       void incrementCount(string word) {
+        // cout << "in incrementCount for: " << word << endl;
+        if (head == nullptr) {
+            // cout << "creating head node" << endl;
+            // if this is the first element
+            MapNode* n = new MapNode(word, nullptr);
+            head = n;
+            return;
+        } else {
+            // cout << "not head" << endl;
+            if (head->word == word) {
+                // cout << "word was head word" << endl;
+                // the first word is the word we are looking for
+                head->numOccurences++;
+                return;
+            }
+            // not the first element
+            MapNode* temp = head;
+            while(temp->next != nullptr) {
+                // cout << "traversing..." << endl;
+                temp = temp->next;
+                if (temp->word == word) {
+                    // cout << "found the word" << endl;
+                    // found the word, increment 
+                    temp->numOccurences++;
+                    // TODO do we want to sort the list by num occurences as it builds? would need a doubly linked list
+                    return;
+                }
+            }
+            // cout << "did not find the word" << endl;
+            // the word is not yet in the list
+            MapNode* n = new MapNode(word, temp);
+            temp->next = n;
+        }
+       }
+
+};
 
 bool isLetter(char c) {
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) return true;
@@ -46,7 +97,8 @@ char toLower(char c) {
 
 
 /* new threads start here */
-void countWords (char* contents, int* sizePtr) {
+void countWords (const char* contents, int* sizePtr, int*tId, void* c) {
+    MapLinkedList* counter = (MapLinkedList*) c;
     int size = *sizePtr;
     int frontIndex = 0;
     int backIndex = 1;
@@ -54,7 +106,9 @@ void countWords (char* contents, int* sizePtr) {
     // while we are within the bounds of this chunk of contents
     while (frontIndex < size) {
         // get to the start of the word
+        // cout << "original front index is " << frontIndex << " giving us " << *(contents+frontIndex) << endl;
         while (!isLetter(*(contents+frontIndex))) { // TODO account for apostrophes?
+            // cout << "adjusting front index" << endl;
             frontIndex++;
             backIndex = frontIndex + 1;
             if (backIndex>size) break;
@@ -63,27 +117,23 @@ void countWords (char* contents, int* sizePtr) {
         currChar = *(contents+backIndex);
         // get to the end of the word (accept letters, apostrophes (39), and dashes (45))
         while (isLetter(currChar) || currChar == 39 || currChar == 45) { 
+            // cout << "adjusting back index" << endl;
             backIndex++;
             currChar = *(contents+backIndex);
         }
 
+        // cout << "fInd: " << frontIndex << " bInd: " << backIndex << endl;
         string word = "";
         for (int in = frontIndex; in < backIndex; in++) {
             word += toLower(*(contents+in));
         }
 
-        { // scope for semaphore and mutex to work in
-            sem.acquire();
-            mtx.lock(); // TODO lock_guard?
-            if (COUNTER.find(word) == COUNTER.end()) {
-                // this is the first occurrence 
-                COUNTER[word] = 1;
-            } else {
-                // this is not the first occurrence - increment count
-                COUNTER[word]++; 
-            }
-            mtx.unlock();
-            sem.release();
+        { // scope for mutex to work in
+            // cout << "thread " << *tId << " wants to acquire mutex" << endl;
+            lock_guard<mutex> lock{mtx};
+            // cout << "thread " << *tId << " acquired mutex" << endl;
+            counter->incrementCount(word);
+            // cout << "thread " << *tId << " is done with mutex" << endl;
         }
 
         // update the index
@@ -101,6 +151,9 @@ int main(int argc, char** argv) {
     }
     string filename = argv[1];
     int numThreads = atoi(argv[2]);
+
+    // start timer (TODO do we want this here or after reading file input?)
+    auto start = chrono::high_resolution_clock::now();
 
     /* get the text from the text file */
     string fileContents = "";
@@ -130,28 +183,36 @@ int main(int argc, char** argv) {
     int startPosition = 0;
     int endPosition = intervalLength - 1; // TODO double check where i need to adjust by 1 in all this math
 
+    MapLinkedList* counter = new MapLinkedList();
+
     // iterate from endPosition forward to find the next non letter
     // set this to the endPosition
     // for the next interval set the startPosition to the old endPosition (+1?)
-    vector<thread> threads;
+    thread threads[numThreads];
+    int threadIds[numThreads];
+    char arrayOfFileChunks[numThreads][intervalLength+15]; //+15 is random for the adjustment of endPosition below
     for (int i = 0; i < numThreads; i++) {
-        cout << "thread num " << i << endl;
         while (isLetter(fileContents[endPosition]) && fileContents.length()>endPosition) endPosition++;
-        cout << "starting at " << startPosition << " ending at " << endPosition << endl;
+        cout << "thread " << i << " starting at " << startPosition << " ending at " << endPosition << endl;
         // get this content chunk
         string fileChunk = fileContents.substr(startPosition, (endPosition - startPosition));
-        // start up a new thread
-        thread t(countWords, (char*)fileChunk.c_str(), &intervalLength);
-        // add to list so we don't lose it
-        // threads.push_back(t); // TODO error
-        t.join(); // for the simple case of 1 thread until fix above error
+        // save the chunk into array so the data stays in memory long enough
+        fileChunk.copy(&arrayOfFileChunks[i][0], fileChunk.size());      
+        // start up a new thread and save it in the array to keep track of it
+        threadIds[i] = i;
+        threads[i] = thread(countWords, &arrayOfFileChunks[i][0], &intervalLength, &threadIds[i], (void*)counter);
         // update the start and end positions for the next segment
         startPosition = endPosition;
         endPosition = startPosition + intervalLength;
     }
 
     /* wait for all threads to finish */
-    for (int i = 0; i < threads.size(); i++) threads[i].join();
+    for (int i = 0; i < numThreads; i++) threads[i].join();
+
+    // end timer
+    auto end = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::microseconds>(end - start);
+
 
     /* TODO write output to file
         - should it write at the end? or have access to the file be mutex so we don't need a map
@@ -159,8 +220,12 @@ int main(int argc, char** argv) {
     */
 
     // just for testing now
-    for (const auto& pair : COUNTER) {
-        cout << "Key: " << pair.first << " Value: " << pair.second << endl;
+    cout << "Total time is " << duration.count() << " milliseconds using " << numThreads << " threads" << endl;
+    MapNode* temp = counter->head;
+    cout << "Key: " << temp->word << " Value: " << temp->numOccurences << endl;
+    while (temp->next != nullptr) {
+        temp = temp->next;
+        cout << "Key: " << temp->word << " Value: " << temp->numOccurences << endl;
     }
 
     return 0;
