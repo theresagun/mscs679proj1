@@ -4,7 +4,6 @@
  *  - track memory usage
  *  - fix when it counts whitespace as a word (happens when using one thread on simpleTest)
  *  - when running simpleTest with 3 threads it counts "s" as its own word?
- *  - make it doubly linked so we can sort it as we put it in
  *  - output to file
 */
 
@@ -27,19 +26,22 @@ class MapNode {
         string word;
         int numOccurences; // TODO - int or long? 
         MapNode* next;
-        MapNode(string w, MapNode* prev) { // TODO don't think i need prev unless doubly linked
-            // cout << "creating new node for: " << w << endl;
+        MapNode* prev;
+        MapNode(string w, MapNode* p) {
             word = w;
             numOccurences = 1;
             next = nullptr;
+            prev = p;
         }
 };
 
 class MapLinkedList {
     public: 
        MapNode* head;
+       MapNode* tail;
        MapLinkedList() {
         head = nullptr;
+        tail = nullptr;
        }
 
        void incrementCount(string word) {
@@ -49,6 +51,7 @@ class MapLinkedList {
             // if this is the first element
             MapNode* n = new MapNode(word, nullptr);
             head = n;
+            tail = n;
             return;
         } else {
             // cout << "not head" << endl;
@@ -61,13 +64,40 @@ class MapLinkedList {
             // not the first element
             MapNode* temp = head;
             while(temp->next != nullptr) {
-                // cout << "traversing..." << endl;
+                // cout << "traversing... " << temp->word  <<" "<< temp->numOccurences << endl;
                 temp = temp->next;
                 if (temp->word == word) {
                     // cout << "found the word" << endl;
                     // found the word, increment 
                     temp->numOccurences++;
-                    // TODO do we want to sort the list by num occurences as it builds? would need a doubly linked list
+                    // ensure node is in correct sorted place
+                    MapNode* sorterTemp = temp->prev; // what we are using to traverse
+                    MapNode* swapper = temp;
+                    if (sorterTemp->numOccurences <= swapper->numOccurences) {
+                        temp->prev->next = temp->next;
+                        temp->next->prev = temp->prev;
+                    }
+                    while(sorterTemp->prev != nullptr && sorterTemp->numOccurences <= swapper->numOccurences) { // 
+                        // cout << "   traversing... " << sorterTemp->word << " " << sorterTemp->numOccurences << " vs " << swapper->numOccurences << endl;
+                        // traverse:
+                        sorterTemp = sorterTemp->prev;
+                    }
+                    if (sorterTemp == head && sorterTemp->numOccurences <= swapper->numOccurences) {
+                        cout << "    replacing head" << endl;
+                        swapper->prev = nullptr;
+                        swapper->next = head;
+                        head->prev = swapper;
+                        head = swapper;
+                    } else if (sorterTemp->numOccurences > swapper->numOccurences) { // does this need to be else if or else???
+                        cout << "    stitching in" << endl;
+                        // stitch it into correct spot
+                        sorterTemp->next->prev = swapper;
+                        swapper->next = sorterTemp->next->prev;
+                        swapper->prev = sorterTemp;
+                        sorterTemp->next = swapper;
+                    } else {
+                        cout<< "\n\nELSE CASE!!!!\n\n"<<endl; // maybe if it's second most occurences ?
+                    }
                     return;
                 }
             }
@@ -75,6 +105,7 @@ class MapLinkedList {
             // the word is not yet in the list
             MapNode* n = new MapNode(word, temp);
             temp->next = n;
+            tail = n;
         }
        }
 
@@ -220,12 +251,12 @@ int main(int argc, char** argv) {
     */
 
     // just for testing now
-    cout << "Total time is " << duration.count() << " milliseconds using " << numThreads << " threads" << endl;
+    cout << "\nTotal time is " << duration.count() << " milliseconds using " << numThreads << " threads" << endl;
     MapNode* temp = counter->head;
-    cout << "Key: " << temp->word << " Value: " << temp->numOccurences << endl;
+    cout << temp->word << " " << temp->numOccurences << endl;
     while (temp->next != nullptr) {
         temp = temp->next;
-        cout << "Key: " << temp->word << " Value: " << temp->numOccurences << endl;
+        cout << temp->word << " " << temp->numOccurences << endl;
     }
 
     return 0;
