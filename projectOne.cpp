@@ -102,6 +102,7 @@ void sortWordCounts() {
 }
 
 int main(int argc, char** argv) {
+    std::cout << "Program Starting" << std::endl;
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <inputFile> <outputFile>\n";
         return 1;
@@ -117,19 +118,58 @@ int main(int argc, char** argv) {
     std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
 
-    // For simplicity, the text is processed in a single thread in this example
-    processTextChunk(fileContents);
-
-    // Sort the word counts
-    sortWordCounts();
-
     std::ofstream outputFile(argv[2]);
-    for (int i = 0; i < wordCountSize; ++i) {
-        outputFile << wordCounts[i].word << " " << wordCounts[i].count << "\n";
+    outputFile << "Threads, Total Words, Runtime (ms)\n";
+
+    for (int numThreads = 1; numThreads <= std::thread::hardware_concurrency(); numThreads *= 2) {
+        auto start = std::chrono::high_resolution_clock::now();
+
+        std::vector<std::thread> threads;
+        size_t chunkSize = fileContents.size() / numThreads;
+
+        for (size_t i = 0; i < numThreads; ++i) {
+            size_t start = i * chunkSize;
+            size_t end = (i + 1) * chunkSize;
+
+            if (i == numThreads - 1) {
+                end = fileContents.size();
+            }
+
+            // Ensure we don't split words between chunks
+            if (end < fileContents.size()) {
+                while (end < fileContents.size() && std::isalpha(fileContents[end])) {
+                    end++;
+                }
+            }
+
+            std::string chunk = fileContents.substr(start, end - start);
+            threads.push_back(std::thread(processTextChunk, chunk));
+        }
+
+        // Wait for all threads to finish
+        for (auto& t : threads) {
+            t.join();
+        }
+
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> runtime = end - start;
+
+        // Sort the word counts
+        sortWordCounts();
+
+        outputFile << numThreads << ", " << wordCountSize << ", " << runtime.count() << "\n";
+        std::cout << "Threads: " << numThreads << ", Total Words: " << wordCountSize << ", Runtime (ms): " << runtime.count() << "\n";
+
+        // Reset wordCounts for the next iteration
+        delete[] wordCounts;
+        wordCounts = new WordCount[INITIAL_CAPACITY];
+        wordCountSize = 0;
+        wordCountCapacity = INITIAL_CAPACITY;
     }
 
-    delete[] wordCounts; // Clean up the dynamic array
+    delete[] wordCounts; // Clean up the dynamic array for the final time
     return 0;
 }
+
 
 
