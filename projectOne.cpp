@@ -158,7 +158,11 @@ int main(int argc, char** argv) {
         sortWordCounts();
 
         outputFile << numThreads << ", " << wordCountSize << ", " << runtime.count() << "\n";
-        std::cout << "Threads: " << numThreads << ", Total Words: " << wordCountSize << ", Runtime (ms): " << runtime.count() << "\n";
+        // Write the sorted word counts to the outputFile
+        outputFile << "Word, Count\n";
+        for (int i = 0; i < wordCountSize; ++i) {
+            outputFile << wordCounts[i].word << ", " << wordCounts[i].count << "\n";
+        }
 
         // Reset wordCounts for the next iteration
         delete[] wordCounts;
