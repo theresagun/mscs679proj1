@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::vector<std::thread> threads;
+    std::thread* threads = new std::thread[numThreads];
     size_t chunkSize = fileContents.size() / numThreads;
 
     for (size_t i = 0; i < numThreads; ++i) {
@@ -145,12 +145,12 @@ int main(int argc, char** argv) {
         }
 
         std::string chunk = fileContents.substr(start, end - start);
-        threads.push_back(std::thread(processTextChunk, chunk));
+        threads[i] = std::thread(processTextChunk, chunk);
     }
 
     // Wait for all threads to finish
-    for (auto& t : threads) {
-        t.join();
+    for (size_t i = 0; i < numThreads; ++i) {
+        threads[i].join();
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -165,6 +165,7 @@ int main(int argc, char** argv) {
         outputFile << wordCounts[i].word << " " << wordCounts[i].count << "\n";
     }
     outputFile.close();
+    delete[] threads;
 
     delete[] wordCounts; // Clean up the dynamic array
     return 0;
