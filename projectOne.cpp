@@ -11,6 +11,9 @@ struct WordCount {
     int count;
 };
 
+void quickSort(WordCount* arr, int low, int high);
+int partition(WordCount* arr, int low, int high);
+
 WordCount* wordCounts = new WordCount[INITIAL_CAPACITY];
 int wordCountSize = 0;
 int wordCountCapacity = INITIAL_CAPACITY;
@@ -91,17 +94,39 @@ void processTextChunk(const std::string& textChunk) {
     }
 }
 
-// Function to sort the word counts using bubble sort
-void sortWordCounts() {
-    for (int i = 0; i < wordCountSize - 1; ++i) {
-        for (int j = 0; j < wordCountSize - i - 1; ++j) {
-            if (wordCounts[j].count < wordCounts[j + 1].count) {
-                WordCount temp = wordCounts[j];
-                wordCounts[j] = wordCounts[j + 1];
-                wordCounts[j + 1] = temp;
-            }
+//function to do quicksort method
+void quickSort(WordCount* arr, int low, int high) {
+    if (low < high) {
+        // Partition the array
+        int pivotIndex = partition(arr, low, high);
+
+        // Recursively sort the subarrays
+        quickSort(arr, low, pivotIndex - 1);
+        quickSort(arr, pivotIndex + 1, high);
+    }
+}
+
+// Function to find the partition position
+int partition(WordCount* arr, int low, int high) {
+    WordCount pivot = arr[high];
+    int i = (low - 1);
+
+    for (int j = low; j < high; j++) {
+        if (arr[j].count > pivot.count) {
+            i++;
+            // Swap arr[i] and arr[j]
+            WordCount temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
         }
     }
+
+    // Swap arr[i + 1] and arr[high] (or pivot)
+    WordCount temp = arr[i + 1];
+    arr[i + 1] = arr[high];
+    arr[high] = temp;
+
+    return i + 1;
 }
 
 int main(int argc, char** argv) {
@@ -157,7 +182,7 @@ int main(int argc, char** argv) {
     std::chrono::duration<double, std::milli> runtime = end - start;
 
     // Sort the word counts
-    sortWordCounts();
+    quickSort(wordCounts, 0, wordCountSize - 1);
 
     std::cout << "Runtime: " << runtime.count() << std::endl;
     // Write the sorted word counts to the outputFile
