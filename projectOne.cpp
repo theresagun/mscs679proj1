@@ -50,7 +50,8 @@ void processTextChunk(const string& textChunk) {
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '-' || c == 39) {
             // buildup a word with letters, hyphens, and apostrophes
             word += toLower(c);
-        } else if (!word.empty()) {
+        }
+        else if (!word.empty()) {
             // if there is a space, number or special character then that's the end of the word
             lock_guard<mutex> guard(wordCountMutex);
             bool found = false;
@@ -67,7 +68,7 @@ void processTextChunk(const string& textChunk) {
                 if (wordCountSize == wordCountCapacity) {
                     resizeWordCounts();
                 }
-                wordCounts[wordCountSize++] = {word, 1};
+                wordCounts[wordCountSize++] = { word, 1 };
             }
 
             word.clear();
@@ -91,7 +92,7 @@ void processTextChunk(const string& textChunk) {
             if (wordCountSize == wordCountCapacity) {
                 resizeWordCounts();
             }
-            wordCounts[wordCountSize++] = {word, 1};
+            wordCounts[wordCountSize++] = { word, 1 };
         }
     }
 }
@@ -136,7 +137,10 @@ void merge(WordCount arr[], int l, int m, int r) {
     int n1 = m - l + 1;
     int n2 = r - m;
 
-    WordCount L[n1], R[n2];
+    WordCount* L = new WordCount[n1];
+    WordCount* R = new WordCount[n2];
+
+    //WordCount L[n1], R[n2];
 
     for (int i = 0; i < n1; i++)
         L[i] = arr[l + i];
@@ -151,7 +155,8 @@ void merge(WordCount arr[], int l, int m, int r) {
         if (L[i].count >= R[j].count) {
             arr[k] = L[i];
             i++;
-        } else {
+        }
+        else {
             arr[k] = R[j];
             j++;
         }
@@ -169,6 +174,10 @@ void merge(WordCount arr[], int l, int m, int r) {
         j++;
         k++;
     }
+
+    delete[] L;
+    delete[] R;
+
 }
 
 /* Semi parallel merge sort */
@@ -178,7 +187,8 @@ void mergeSortParallel(WordCount arr[], int l, int r, int depth) {
             // If depth limit is reached, switch to sequential merge sort
             mergeSortParallel(arr, l, (l + r) / 2, 0);
             mergeSortParallel(arr, (l + r) / 2 + 1, r, 0);
-        } else {
+        }
+        else {
             thread t1(mergeSortParallel, arr, l, (l + r) / 2, depth - 1);
             thread t2(mergeSortParallel, arr, (l + r) / 2 + 1, r, depth - 1);
             t1.join();
@@ -210,8 +220,8 @@ int main(int argc, char** argv) {
     ofstream outputFile("output.txt");
 
     auto start = chrono::high_resolution_clock::now();
-
-    thread threads[numThreads];
+    thread* threads = new thread[numThreads];
+    //thread threads[numThreads];
     size_t chunkSize = fileContents.size() / numThreads;
 
     for (size_t i = 0; i < numThreads; ++i) {
@@ -224,7 +234,7 @@ int main(int argc, char** argv) {
 
         // Ensure we don't split words between chunks
         if (end < fileContents.size()) {
-        while (end < fileContents.size() && (isalpha(fileContents[end]) || fileContents[end] == '-' || fileContents[end] == 39)) {
+            while (end < fileContents.size() && (isalpha(fileContents[end]) || fileContents[end] == '-' || fileContents[end] == 39)) {
                 end++;
             }
         }
@@ -238,8 +248,19 @@ int main(int argc, char** argv) {
         threads[i].join();
     }
 
+    // Calculate the count of unique words
+    int uniqueWordCount = 0;
+    for (int i = 0; i < wordCountSize; ++i) {
+        if (wordCounts[i].count == 1) {
+            uniqueWordCount++;
+        }
+    }
+
+    // Write "Number of words: {wordcount}" to the output file
+    outputFile << "Number of words: " << uniqueWordCount << "\n";
+
     // Sort the word counts
-    mergeSortParallel(wordCounts, 0, wordCountSize - 1, 2); 
+    mergeSortParallel(wordCounts, 0, wordCountSize - 1, 2);
 
     auto end = chrono::high_resolution_clock::now();
     chrono::duration<double, milli> runtime = end - start;
@@ -251,9 +272,10 @@ int main(int argc, char** argv) {
     }
     outputFile.close();
     // Clean up the dynamic array
-    delete[] wordCounts; 
+    delete[] wordCounts;
     return 0;
 }
+
 
 
 
