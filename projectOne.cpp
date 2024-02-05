@@ -97,41 +97,6 @@ void processTextChunk(const string& textChunk) {
     }
 }
 
-//function to do quicksort method
-void quickSort(WordCount* arr, int low, int high) {
-    if (low < high) {
-        // Partition the array
-        int pivotIndex = partition(arr, low, high);
-
-        // Recursively sort the subarrays
-        quickSort(arr, low, pivotIndex - 1);
-        quickSort(arr, pivotIndex + 1, high);
-    }
-}
-
-// Function to find the partition position
-int partition(WordCount* arr, int low, int high) {
-    WordCount pivot = arr[high];
-    int i = (low - 1);
-
-    for (int j = low; j < high; j++) {
-        if (arr[j].count > pivot.count) {
-            i++;
-            // Swap arr[i] and arr[j]
-            WordCount temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-        }
-    }
-
-    // Swap arr[i + 1] and arr[high] (or pivot)
-    WordCount temp = arr[i + 1];
-    arr[i + 1] = arr[high];
-    arr[high] = temp;
-
-    return i + 1;
-}
-
 /* Serial merge */
 void merge(WordCount arr[], int l, int m, int r) {
     int n1 = m - l + 1;
@@ -247,17 +212,6 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < numThreads; ++i) {
         threads[i].join();
     }
-
-    // Calculate the count of unique words
-    int uniqueWordCount = 0;
-    for (int i = 0; i < wordCountSize; ++i) {
-        if (wordCounts[i].count == 1) {
-            uniqueWordCount++;
-        }
-    }
-
-    // Write "Number of words: {wordcount}" to the output file
-    outputFile << "Number of words: " << uniqueWordCount << "\n";
 
     // Sort the word counts
     mergeSortParallel(wordCounts, 0, wordCountSize - 1, 2);
